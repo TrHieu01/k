@@ -5,10 +5,9 @@ import pandas_ta as ta
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
-import pytz
 import vnstock as vs
-import requests  # Thư viện mới để gọi API
-from statsmodels.tsa.arima.model import ARIMA  # Thư viện mới cho mô hình dự đoán
+import requests
+from statsmodels.tsa.arima.model import ARIMA
 
 # --- Cấu hình trang Streamlit và CSS tùy chỉnh ---
 st.set_page_config(layout="wide", page_title="Bảng Điều Khiển Phân Tích Cổ Phiếu")
@@ -16,7 +15,6 @@ st.set_page_config(layout="wide", page_title="Bảng Điều Khiển Phân Tích
 # Áp dụng CSS tùy chỉnh
 st.markdown("""
 <style>
-    /* Nền chính và container */
     .stApp {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: #333;
@@ -26,32 +24,25 @@ st.markdown("""
         max-width: 1400px; margin: 0 auto; background: rgba(255, 255, 255, 0.95);
         border-radius: 20px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); overflow: hidden;
     }
-    /* Tiêu đề */
     .css-1cpxqw2.e16z0g0x1 {
         background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white;
         padding: 30px; text-align: center; border-radius: 20px 20px 0 0;
     }
-    /* Kiểu tab */
     .stTabs [data-baseweb="tab-list"] { gap: 10px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; border-radius: 10px 10px 0 0; overflow: hidden; margin: 0 30px; }
     .stTabs [data-baseweb="tab-list"] button { padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; font-weight: 600; border-bottom: 3px solid transparent; color: #495057; min-width: 120px; }
     .stTabs [data-baseweb="tab-list"] button:hover { background: #e9ecef; }
     .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] { background: white; border-bottom-color: #667eea; color: #667eea; }
-    /* Kiểu nút */
     .stButton>button { padding: 15px 25px; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; transition: all 0.3s; font-weight: 600; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; }
     .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
-    /* Kiểu ô nhập văn bản */
     .stTextInput>div>div>input { padding: 15px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; width: 100%; }
     .stTextInput>div>div>input:focus { border-color: #667eea; box-shadow: 0 0 10px rgba(102, 126, 234, 0.3); }
-    /* Kiểu nút radio cho phạm vi thời gian */
     .stRadio > label { font-weight: 600; margin-bottom: 10px; }
     .stRadio > div { display: flex; flex-wrap: wrap; gap: 10px; margin-left: 15px; }
     .stRadio > div > label { padding: 8px 16px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 5px; cursor: pointer; transition: all 0.3s; font-size: 14px; font-weight: 500; }
     .stRadio > div > label[data-baseweb="radio"] span:first-child { display: none; }
     .stRadio > div > label[data-baseweb="radio"][aria-checked="true"] { background: #667eea; color: white; box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3); }
-    /* Kiểu thẻ chung */
     .st-emotion-cache-1r6dm1x { background: rgba(255, 255, 255, 0.95); border-radius: 20px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); padding: 25px; margin-bottom: 20px; border: 1px solid #e9ecef; }
     .st-emotion-cache-1r6dm1x h3 { color: #2c3e50; margin-bottom: 15px; font-size: 1.4em; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-    /* Màu tín hiệu */
     .indicator-signal { font-size: 0.9em; padding: 5px 10px; border-radius: 5px; display: inline-block; margin-top: 5px; font-weight: 600; }
     .signal-buy { background: #d4edda; color: #155724; }
     .signal-sell { background: #f8d7da; color: #721c24; }
@@ -67,16 +58,16 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-
 # --- Các hàm hỗ trợ ---
 
 @st.cache_data
 def fetch_stock_data(symbol, time_range):
-    """Lấy dữ liệu lịch sử và các chỉ số tài chính thực."""
+    """Lấy dữ liệu lịch sử và các chỉ số tài chính từ vnstock hoặc yfinance."""
     data = pd.DataFrame()
     is_vietnamese_stock = False
     vn_stock_symbols = ['FPT', 'VCB', 'HPG', 'VIC', 'VND', 'SSI', 'GAS', 'MWG', 'PNJ', 'CTG', 'BID', 'MBB']
 
+    # Kiểm tra nếu là cổ phiếu Việt Nam
     if symbol.upper() in vn_stock_symbols or symbol.upper().endswith('.VN'):
         is_vietnamese_stock = True
         end_date = datetime.now()
@@ -84,10 +75,9 @@ def fetch_stock_data(symbol, time_range):
         start_date = end_date - timedelta(days=days_map.get(time_range, 365))
 
         try:
-            data_vn = vs.stock_historical_data(symbol, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            data_vn = vs.stock_historical_data(symbol.upper(), start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), '1D')
             if not data_vn.empty:
-                # Dòng code đã sửa
-                data = data_vn.rename(columns={'time': 'Date'}).set_index('Date')
+                data = data_vn.rename(columns={'TradingDate': 'Date', 'close': 'Close', 'open': 'Open', 'high': 'High', 'low': 'Low', 'volume': 'Volume'}).set_index('Date')
                 data.index = pd.to_datetime(data.index)
         except Exception as e:
             st.error(f"Lỗi khi tải dữ liệu từ vnstock cho {symbol}: {e}")
@@ -96,7 +86,7 @@ def fetch_stock_data(symbol, time_range):
         period_map = {'1D': '5d', '1W': '1mo', '1M': '3mo', '3M': '6mo', '6M': '1y', '1Y': '2y', '3Y': '5y'}
         ticker = yf.Ticker(symbol)
         try:
-            data = ticker.history(period=period_map.get(time_range, '1y'))
+            data = ticker.history(period=period_map.get(time_range, '1y'), interval='1d')
         except Exception as e:
             st.error(f"Lỗi khi tải dữ liệu từ yfinance cho {symbol}: {e}")
             return None
@@ -105,25 +95,29 @@ def fetch_stock_data(symbol, time_range):
         st.error(f"Không thể tải dữ liệu cho mã cổ phiếu: {symbol}. Vui lòng kiểm tra lại mã.")
         return None
 
+    # Chuẩn hóa tên cột
     data.columns = [col.replace(' ', '') for col in data.columns]
     data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
-    data.index = pd.to_datetime(data.index.date)  # Chuẩn hóa index để loại bỏ timezone
+    data.index = pd.to_datetime(data.index).tz_localize(None)  # Loại bỏ timezone
 
+    # Lấy giá hiện tại và các thông số
     current_price = data['Close'].iloc[-1]
     previous_close = data['Close'].iloc[-2] if len(data) > 1 else current_price
     change = current_price - previous_close
     change_percent = (change / previous_close) * 100 if previous_close != 0 else 0
 
+    # Lấy thông tin tài chính cơ bản
     market_cap, pe_ratio, high_52w, low_52w, beta = (None,) * 5
     try:
         if is_vietnamese_stock:
-            overview = vs.company_overview(symbol)
-            market_cap = overview['marketCap'].iloc[0] * 1_000_000  # vnstock trả về theo triệu
-            pe_ratio = overview['priceToEarningsRatio'].iloc[0]
-            high_52w = overview['weekHigh52'].iloc[0]
-            low_52w = overview['weekLow52'].iloc[0]
-            beta = overview['beta'].iloc[0]
-        else:  # yfinance
+            overview = vs.company_overview(symbol.upper())
+            if not overview.empty:
+                market_cap = overview.get('marketCap', pd.Series([None])).iloc[0] * 1_000_000 if pd.notna(overview.get('marketCap')).any() else None
+                pe_ratio = overview.get('priceToEarningsRatio', pd.Series([None])).iloc[0]
+                high_52w = overview.get('weekHigh52', pd.Series([None])).iloc[0]
+                low_52w = overview.get('weekLow52', pd.Series([None])).iloc[0]
+                beta = overview.get('beta', pd.Series([None])).iloc[0]
+        else:
             ticker = yf.Ticker(symbol)
             info = ticker.info
             market_cap = info.get('marketCap')
@@ -131,8 +125,8 @@ def fetch_stock_data(symbol, time_range):
             high_52w = info.get('fiftyTwoWeekHigh')
             low_52w = info.get('fiftyTwoWeekLow')
             beta = info.get('beta')
-    except Exception:
-        st.warning(f"Không thể tải dữ liệu tài chính chi tiết cho {symbol}. Một số giá trị có thể bị thiếu.")
+    except Exception as e:
+        st.warning(f"Không thể tải dữ liệu tài chính chi tiết cho {symbol}: {e}")
 
     return {
         'symbol': symbol, 'is_vietnamese': is_vietnamese_stock,
@@ -141,7 +135,6 @@ def fetch_stock_data(symbol, time_range):
         'marketCap': market_cap, 'peRatio': pe_ratio, 'high52w': high_52w, 'low52w': low_52w, 'beta': beta,
         'df': data
     }
-
 
 def update_stock_info(stock_data):
     st.markdown("<h3>Thông tin cổ phiếu</h3>", unsafe_allow_html=True)
@@ -152,33 +145,28 @@ def update_stock_info(stock_data):
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f"<h4>{stock_data['symbol']}</h4>", unsafe_allow_html=True)
-        st.write(f"**Giá hiện tại:** ${stock_data['currentPrice']:.2f}")
+        st.write(f"**Giá hiện tại:** {stock_data['currentPrice']:.2f}")
         change_color = "green" if stock_data['change'] >= 0 else "red"
         change_symbol = "+" if stock_data['change'] >= 0 else ""
         st.markdown(f"**Thay đổi:** <span style='color:{change_color}'>{change_symbol}{stock_data['change']:.2f} ({stock_data['changePercent']:.2f}%)</span>", unsafe_allow_html=True)
 
     with col2:
         st.write(f"**Khối lượng:** {stock_data['volume']:,}")
-        
-        # Sửa lỗi: Tạo biến riêng để code dễ đọc và tránh lỗi cú pháp
-        market_cap_str = f"${stock_data['marketCap'] / 1e9:.2f}B" if stock_data.get('marketCap') else "N/A"
+        market_cap_str = f"{stock_data['marketCap'] / 1e9:.2f}B" if stock_data.get('marketCap') else "N/A"
         pe_ratio_str = f"{stock_data['peRatio']:.2f}" if stock_data.get('peRatio') else "N/A"
-        
         st.write(f"**Vốn hóa:** {market_cap_str}")
         st.write(f"**P/E Ratio:** {pe_ratio_str}")
 
     st.markdown("<h3>Các chỉ số chính</h3>", unsafe_allow_html=True)
     stats_cols = st.columns(4)
-
-    # Sửa lỗi: Đảm bảo f-string dùng dấu ngoặc kép "" bên ngoài
     stats = [
-        ("Giá hiện tại", f"${stock_data['currentPrice']:.2f}"),
+        ("Giá hiện tại", f"{stock_data['currentPrice']:.2f}"),
         ("Thay đổi (%)", f"{change_symbol}{stock_data['changePercent']:.2f}%"),
         ("Khối lượng", f"{stock_data['volume'] / 1e6:.2f}M"),
-        ("Vốn hóa thị trường", f"${stock_data['marketCap'] / 1e9:.2f}B" if stock_data.get('marketCap') else "N/A"),
+        ("Vốn hóa thị trường", f"{stock_data['marketCap'] / 1e9:.2f}B" if stock_data.get('marketCap') else "N/A"),
         ("P/E Ratio", f"{stock_data['peRatio']:.2f}" if stock_data.get('peRatio') else "N/A"),
-        ("Cao nhất 52W", f"${stock_data['high52w']:.2f}" if stock_data.get('high52w') else "N/A"),
-        ("Thấp nhất 52W", f"${stock_data['low52w']:.2f}" if stock_data.get('low52w') else "N/A"),
+        ("Cao nhất 52W", f"{stock_data['high52w']:.2f}" if stock_data.get('high52w') else "N/A"),
+        ("Thấp nhất 52W", f"{stock_data['low52w']:.2f}" if stock_data.get('low52w') else "N/A"),
         ("Beta", f"{stock_data['beta']:.2f}" if stock_data.get('beta') else "N/A")
     ]
     
@@ -190,7 +178,6 @@ def update_stock_info(stock_data):
                 <div style="color: #6c757d; margin-top: 5px; font-size: 0.9em;">{label}</div>
             </div>
             """, unsafe_allow_html=True)
-
 
 def update_charts(stock_data):
     st.markdown("<h3>Biểu đồ giá với Moving Averages</h3>", unsafe_allow_html=True)
@@ -260,7 +247,6 @@ def update_charts(stock_data):
     fig_bbands.update_layout(title='Biểu đồ Bollinger Bands', height=400, template="plotly_white")
     st.plotly_chart(fig_bbands, use_container_width=True)
 
-
 def update_technical_indicators(stock_data):
     st.markdown("<h3>Các chỉ báo kỹ thuật</h3>", unsafe_allow_html=True)
     if stock_data is None or stock_data['df'].empty:
@@ -270,7 +256,6 @@ def update_technical_indicators(stock_data):
     df = stock_data['df'].copy()
     prices = df['Close']
     
-    # Hàm nội bộ để tạo card
     def create_indicator_card(title, value, signal, signal_class):
         return f"""
         <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #667eea; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); margin-bottom: 10px; height: 100%;">
@@ -342,7 +327,6 @@ def update_technical_indicators(stock_data):
             if latest_adx > 25: adx_signal, adx_class = "Xu hướng mạnh", "signal-buy"
         other_cols[2].markdown(create_indicator_card("ADX (14)", f"{latest_adx:.2f}", adx_signal, adx_class), unsafe_allow_html=True)
 
-
 def update_oscillators(stock_data):
     st.markdown("<h3>Các chỉ báo dao động</h3>", unsafe_allow_html=True)
     if stock_data is None or stock_data['df'].empty:
@@ -376,7 +360,6 @@ def update_oscillators(stock_data):
     fig_wpr.update_layout(title='Williams %R (14)', height=300, template="plotly_white", yaxis_range=[-100,0])
     st.plotly_chart(fig_wpr, use_container_width=True)
 
-
 def update_fundamentals(stock_data):
     st.markdown("<h3>Phân tích cơ bản</h3>", unsafe_allow_html=True)
     if not stock_data:
@@ -388,23 +371,34 @@ def update_fundamentals(stock_data):
         with st.spinner(f"Đang tải dữ liệu tài chính cho {symbol}..."):
             if stock_data['is_vietnamese']:
                 st.subheader("Chỉ số tài chính (Theo Quý)")
-                df_ratios = vs.financial_ratio(symbol, 'quarterly', True)
-                st.dataframe(df_ratios)
-                
+                df_ratios = vs.financial_ratio(symbol.upper(), 'quarterly', True)
+                if not df_ratios.empty:
+                    st.dataframe(df_ratios)
+                else:
+                    st.info("Không có dữ liệu chỉ số tài chính.")
+
                 st.subheader("Báo cáo kết quả kinh doanh (Theo Quý)")
-                df_income = vs.financial_flow(symbol, 'incomestatement', 'quarterly')
-                st.dataframe(df_income)
-            else:  # yfinance
+                df_income = vs.financial_flow(symbol.upper(), 'incomestatement', 'quarterly')
+                if not df_income.empty:
+                    st.dataframe(df_income)
+                else:
+                    st.info("Không có dữ liệu báo cáo kết quả kinh doanh.")
+            else:
                 ticker = yf.Ticker(symbol)
                 st.subheader("Báo cáo tài chính (Hàng năm)")
-                st.dataframe(ticker.financials)
-                
+                if not ticker.financials.empty:
+                    st.dataframe(ticker.financials)
+                else:
+                    st.info("Không có dữ liệu báo cáo tài chính.")
+
                 st.subheader("Bảng cân đối kế toán (Hàng năm)")
-                st.dataframe(ticker.balance_sheet)
+                if not ticker.balance_sheet.empty:
+                    st.dataframe(ticker.balance_sheet)
+                else:
+                    st.info("Không có dữ liệu bảng cân đối kế toán.")
 
     except Exception as e:
         st.error(f"Không thể tải dữ liệu tài chính: {e}")
-
 
 def update_comparison(symbols_string, time_range):
     st.markdown("<h3>So sánh hiệu suất các cổ phiếu</h3>", unsafe_allow_html=True)
@@ -419,7 +413,6 @@ def update_comparison(symbols_string, time_range):
 
     with st.spinner("Đang tải dữ liệu so sánh..."):
         for symbol in symbols:
-            # Dùng lại hàm fetch_stock_data đã có cache
             data = fetch_stock_data(symbol, time_range)
             if data and not data['df'].empty:
                 all_data[symbol] = data['df']
@@ -428,7 +421,6 @@ def update_comparison(symbols_string, time_range):
         st.warning("Không tải được dữ liệu cho bất kỳ mã nào được nhập.")
         return
 
-    # Chuẩn hóa giá để so sánh (% thay đổi)
     for symbol, df in all_data.items():
         normalized_price = (df['Close'] / df['Close'].iloc[0] - 1) * 100
         fig.add_trace(go.Scatter(x=normalized_price.index, y=normalized_price, mode='lines', name=symbol))
@@ -440,7 +432,6 @@ def update_comparison(symbols_string, time_range):
     )
     st.plotly_chart(fig, use_container_width=True)
 
-
 def update_predictions(stock_data):
     st.markdown("<h3>Dự đoán giá (Mô hình ARIMA)</h3>", unsafe_allow_html=True)
     if stock_data is None or stock_data['df'].empty or len(stock_data['df']) < 50:
@@ -450,7 +441,6 @@ def update_predictions(stock_data):
     df_close = stock_data['df']['Close']
     try:
         with st.spinner("Đang huấn luyện mô hình dự đoán..."):
-            # Xây dựng và huấn luyện mô hình ARIMA (p,d,q) là các tham số
             model = ARIMA(df_close, order=(5, 1, 0))
             model_fit = model.fit()
             forecast_result = model_fit.forecast(steps=30)
@@ -466,7 +456,7 @@ def update_predictions(stock_data):
                 st.markdown(f"""
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4); height: 100%;">
                     <h4>Dự đoán {label}</h4>
-                    <div style="font-size: 2.5em; font-weight: bold; margin: 10px 0;">${value:.2f}</div>
+                    <div style="font-size: 2.5em; font-weight: bold; margin: 10px 0;">{value:.2f}</div>
                 </div>
                 """, unsafe_allow_html=True)
         st.markdown("<p style='font-size: 0.9em; color: #6c757d; margin-top: 15px;'><em>Lưu ý: Đây là dự đoán từ mô hình toán học, không phải lời khuyên tài chính. Kết quả chỉ mang tính tham khảo.</em></p>", unsafe_allow_html=True)
@@ -474,10 +464,9 @@ def update_predictions(stock_data):
     except Exception as e:
         st.error(f"Lỗi khi xây dựng mô hình dự đoán: {e}")
 
-
 def update_news(symbol):
     st.markdown("<h3>Tin tức và Phân tích</h3>", unsafe_allow_html=True)
-    API_KEY = 'd1rsj2pr01qm5ddsjamgd1rsj2pr01qm5ddsjan0'  # API Key đã được tích hợp
+    API_KEY = 'd1rsj2pr01qm5ddsjamgd1rsj2pr01qm5ddsjan0'
 
     try:
         end_date = datetime.now().strftime('%Y-%m-%d')
@@ -485,14 +474,14 @@ def update_news(symbol):
         url = f'https://finnhub.io/api/v1/company-news?symbol={symbol}&from={start_date}&to={end_date}&token={API_KEY}'
 
         r = requests.get(url, timeout=10)
-        r.raise_for_status()  # Báo lỗi nếu request không thành công (vd: 4xx, 5xx)
+        r.raise_for_status()
         news_list = r.json()
 
         if not news_list:
             st.info(f"Không tìm thấy tin tức gần đây cho mã {symbol}.")
             return
 
-        for news_item in news_list[:5]:  # Hiển thị 5 tin mới nhất
+        for news_item in news_list[:5]:
             news_date = datetime.fromtimestamp(news_item['datetime']).strftime('%d-%m-%Y')
             st.markdown(f"""
             <div style="background: white; border-radius: 15px; padding: 20px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); border: 1px solid #e9ecef; margin-bottom: 20px;">
@@ -509,7 +498,6 @@ def update_news(symbol):
     except Exception as e:
         st.error(f"Lỗi khi xử lý dữ liệu tin tức: {e}")
 
-
 # --- Bố cục ứng dụng Streamlit ---
 col1, col2, col3 = st.columns([3, 4, 1])
 with col1:
@@ -517,7 +505,7 @@ with col1:
 with col2:
     time_range_options = ['1D', '1W', '1M', '3M', '6M', '1Y', '3Y']
     if 'selected_time_range' not in st.session_state:
-        st.session_state.selected_time_range = '1Y'  # Mặc định 1 năm để có đủ dữ liệu cho ARIMA
+        st.session_state.selected_time_range = '1Y'
 
     selected_time_range = st.radio(
         "Chọn phạm vi thời gian:", time_range_options,
