@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -77,8 +78,28 @@ def fetch_stock_data(symbol, time_range):
         try:
             data_vn = vs.stock_historical_data(symbol.upper(), start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), '1D')
             if not data_vn.empty:
-                data = data_vn.rename(columns={'TradingDate': 'Date', 'close': 'Close', 'open': 'Open', 'high': 'High', 'low': 'Low', 'volume': 'Volume'}).set_index('Date')
-                data.index = pd.to_datetime(data.index)
+                # Debugging: In ra các cột để kiểm tra
+                st.write(f"Các cột trong dữ liệu từ vnstock: {list(data_vn.columns)}")
+                
+                # Chuẩn hóa tên cột (dựa trên tên cột thực tế)
+                column_mapping = {
+                    'time': 'Date',  # Thay 'TradingDate' bằng 'time' nếu đó là tên cột thực tế
+                    'open': 'Open',
+                    'high': 'High',
+                    'low': 'Low',
+                    'close': 'Close',
+                    'volume': 'Volume'
+                }
+                data = data_vn.rename(columns=column_mapping)
+                if 'Date' in data.columns:
+                    data = data.set_index('Date')
+                    data.index = pd.to_datetime(data.index)
+                else:
+                    st.error(f"Không tìm thấy cột 'time' hoặc 'TradingDate' trong dữ liệu từ vnstock cho {symbol}.")
+                    return None
+            else:
+                st.error(f"Dữ liệu từ vnstock cho {symbol} rỗng.")
+                return None
         except Exception as e:
             st.error(f"Lỗi khi tải dữ liệu từ vnstock cho {symbol}: {e}")
             return None
@@ -551,3 +572,82 @@ with tabs[6]:
     update_predictions(st.session_state.stock_data)
 with tabs[7]:
     update_news(main_symbol)
+```
+
+### Key Changes in `fetch_stock_data`
+1. **Dynamic Column Mapping**:
+   - Replaced the hardcoded `TradingDate` with a `column_mapping` dictionary that maps expected `vnstock` column names (`time`, `open`, `high`, `low`, `close`, `volume`) to the standard names (`Date`, `Open`, `High`, `Low`, `Close`, `Volume`).
+   - This accounts for the possibility that `vnstock` uses `time` instead of `TradingDate`.
+
+2. **Debugging Output**:
+   - Added `st.write(f"Các cột trong dữ liệu từ vnstock: {list(data_vn.columns)}")` to display the actual column names returned by `vnstock`. This will help you confirm the correct column names when testing.
+
+3. **Error Handling**:
+   - Added a check for the presence of the `Date` column after renaming to avoid the `None of ['Date'] are in the columns` error.
+   - Included specific error messages for empty data or missing columns.
+
+4. **Data Validation**:
+   - Ensured that the function returns `None` if the data is empty or if critical columns are missing, preventing downstream errors.
+
+### Debugging Steps
+To identify the exact issue with `vnstock` and the `FPT` symbol:
+1. **Run the Updated Code**:
+   - Copy and run the updated code in your environment.
+   - When you select `FPT` and click "Phân tích," check the Streamlit interface for the debugging output (`Các cột trong dữ liệu từ vnstock: ...`). This will show the actual column names returned by `vnstock`.
+
+2. **Verify `vnstock` Version**:
+   - Check your `vnstock` version:
+     ```bash
+     pip show vnstock
+     ```
+   - Ensure you have the latest version:
+     ```bash
+     pip install --upgrade vnstock
+     ```
+   - The `vnstock` library may have updated its column names (e.g., from `TradingDate` to `time`). The debugging output will confirm this.
+
+3. **Test with a Different Symbol**:
+   - Try other Vietnamese stock symbols (e.g., `VCB`, `HPG`) to see if the issue is specific to `FPT` or a general problem with `vnstock`.
+
+4. **Check API Data**:
+   - If the debugging output shows no columns or unexpected columns, it’s possible that `vnstock` is failing to retrieve data for `FPT`. This could be due to:
+     - An invalid symbol format (though `FPT` should be valid).
+     - A temporary issue with the `vnstock` API or data source.
+     - A restriction on the data period or resolution.
+
+5. **Manually Inspect `vnstock` Data**:
+   - Run the following in a Python console to inspect the raw data:
+     ```python
+     from vnstock import stock_historical_data
+     from datetime import datetime, timedelta
+     symbol = 'FPT'
+     end_date = datetime.now()
+     start_date = end_date - timedelta(days=365)
+     data = stock_historical_data(symbol, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'), '1D')
+     print(data.columns)
+     print(data.head())
+     ```
+   - This will show the exact column names and a sample of the data returned by `vnstock`.
+
+### Additional Notes
+- **Column Name Assumptions**: The updated code assumes that `vnstock` returns columns like `time`, `open`, `high`, `low`, `close`, and `volume`. If the debugging output shows different names, update the `column_mapping` dictionary in the `fetch_stock_data` function accordingly.
+- **Empty Data Handling**: The code now checks for empty data and missing columns, which should prevent the error from crashing the application.
+- **Dependencies**: Ensure all required libraries are installed, including `vnstock`, `yfinance`, `pandas`, `pandas_ta`, `plotly`, `requests`, `statsmodels`, and `websockets` (from your previous error). You can install them with:
+  ```bash
+  pip install vnstock yfinance pandas pandas_ta plotly requests statsmodels websockets
+  ```
+- **Finnhub API**: The `update_news` function uses Finnhub, which may not provide comprehensive news for Vietnamese stocks like `FPT`. You may want to explore alternative news APIs for better coverage of Vietnamese stocks.
+- **Currency Handling**: The code displays prices with a dollar sign (`$`), which is incorrect for Vietnamese stocks (should be VND). You can modify the `update_stock_info` function to use `VND` for Vietnamese stocks:
+  ```python
+  currency = "VND" if stock_data['is_vietnamese'] else "$"
+  st.write(f"**Giá hiện tại:** {currency}{stock_data['currentPrice']:.2f}")
+  ```
+
+### If the Issue Persists
+If the error persists after applying the updated code:
+1. Share the output of the debugging line (`Các cột trong dữ liệu từ vnstock: ...`) to confirm the column names.
+2. Provide the output of `pip show vnstock` to verify the library version.
+3. Share any additional error messages or logs.
+4. Test with a different time range (e.g., `1M` instead of `1Y`) to rule out data availability issues.
+
+This will help pinpoint whether the issue is with `vnstock`'s data structure, the API, or the specific symbol `FPT`.
