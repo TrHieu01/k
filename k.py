@@ -572,5 +572,3 @@ with tabs[6]:
     update_predictions(st.session_state.stock_data)
 with tabs[7]:
     update_news(main_symbol)
-
-
