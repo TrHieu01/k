@@ -86,7 +86,8 @@ def fetch_stock_data(symbol, time_range):
         try:
             data_vn = vs.stock_historical_data(symbol, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             if not data_vn.empty:
-                data = data_vn.rename(columns={'TradingDate': 'Date'}).set_index('Date')
+                # Dòng code đã sửa
+                data = data_vn.rename(columns={'time': 'Date'}).set_index('Date')
                 data.index = pd.to_datetime(data.index)
         except Exception as e:
             st.error(f"Lỗi khi tải dữ liệu từ vnstock cho {symbol}: {e}")
